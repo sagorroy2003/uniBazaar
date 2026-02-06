@@ -159,3 +159,41 @@ CREATE TABLE Products (
    - Create/edit/sell listings
    - Category/search behavior
    - Contact method visibility rules
+   
+codex/create-student-classifieds-project-documentation
+
+## 9. MVP Acceptance Criteria (Merge-Ready Checklist)
+
+Use this checklist before merging feature work into main:
+
+### Authentication & Access
+
+- [ ] Only university email domains are accepted at sign-up.
+- [ ] Passwords are hashed with bcrypt (never stored in plain text).
+- [ ] JWT-based authentication protects private routes.
+- [ ] Unauthorized users cannot access profile or My Listings endpoints.
+
+### Listings & Discovery
+
+- [ ] Sellers can create listings with required fields (title, price, category).
+- [ ] Listings appear on the homepage sorted by newest first.
+- [ ] Category filtering works and returns only matching listings.
+- [ ] Search returns items matching title/description keywords.
+- [ ] Sellers can edit, delete, and mark their own listings as sold.
+
+### Contact Privacy Model
+
+- [ ] Contact method toggles are per listing (not global only).
+- [ ] WhatsApp toggle is enabled only when phone number exists in profile.
+- [ ] Messenger toggle is enabled only when username exists in profile.
+- [ ] Product page reveals only the contact methods enabled for that listing.
+
+### Data & Deployment
+
+- [ ] Database schema includes all required tables and constraints.
+- [ ] Image upload flow stores Cloudinary URLs in the Products record.
+- [ ] Environment variables are configured on Koyeb/Vercel.
+- [ ] End-to-end smoke test passes on deployed frontend + backend.
+
+=======
+main
