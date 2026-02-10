@@ -12,26 +12,35 @@ const port = Number(process.env.PORT) || 4000;
 app.use(cors());
 app.use(express.json());
 
+// Health check
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
-app.get("/categories", async (_req: Request, res: Response, next: NextFunction) => {
-  try {
-    const categories = await prisma.category.findMany({
-      orderBy: { name: "asc" },
-    });
+// Categories
+app.get(
+  "/categories",
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const categories = await prisma.category.findMany({
+        orderBy: { name: "asc" },
+      });
 
-    res.json(categories);
-  } catch (error) {
-    next(error);
+      res.json(categories);
+    } catch (err) {
+      // log the real error so you can debug 500s fast
+      console.error("GET /categories failed:", err);
+      next(err);
+    }
   }
-});
+);
 
+// 404
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ message: "Not Found" });
 });
 
+// Central error handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   errorHandler(err, req, res, next);
 });
@@ -39,9 +48,22 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 async function startServer() {
   try {
     await prisma.$connect();
-    app.listen(port, () => {
+
+    const server = app.listen(port, () => {
       console.log(`Backend running on http://localhost:${port}`);
     });
+
+    // graceful shutdown
+    const shutdown = async () => {
+      console.log("Shutting down...");
+      server.close(async () => {
+        await prisma.$disconnect();
+        process.exit(0);
+      });
+    };
+
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
   } catch (error) {
     console.error("Failed to start backend:", error);
     process.exit(1);
@@ -49,8 +71,3 @@ async function startServer() {
 }
 
 void startServer();
-
-app.listen(port, () => {
-  console.log(`Backend running on http://localhost:${port}`);
-});
-
