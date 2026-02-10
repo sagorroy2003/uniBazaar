@@ -9,12 +9,12 @@ datasource db {
 
 model User {
   id                Int       @id @default(autoincrement())
-  name              String
   email             String    @unique
-  passwordHash      String
+  password          String
+  createdAt         DateTime  @default(now())
+  name              String?
   phoneNumber       String?
   messengerUsername String?
-  createdAt         DateTime  @default(now())
   products          Product[]
 
   @@map("Users")
