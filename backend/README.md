@@ -32,7 +32,19 @@
    ```
 
 ## API
+### Public
 - `GET /health` -> `{ "status": "ok" }`
 - `GET /categories` -> all categories sorted by name
+- `GET /products` -> all products (newest first)
+- `GET /products?categoryId=<id>` -> products filtered by category
+- `GET /products/:id` -> single product by id
+
+### Auth
 - `POST /auth/signup` -> create user (student domain only) + return JWT
 - `POST /auth/login` -> return JWT for valid credentials
+
+### Protected (Bearer token required)
+- `POST /products` -> create product for authenticated user (`userId` is derived from token)
+- `PUT /products/:id` -> update product (owner only)
+- `PATCH /products/:id/sold` -> mark product sold (owner only)
+- `DELETE /products/:id` -> delete product (owner only)

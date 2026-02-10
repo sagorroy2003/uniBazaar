@@ -6,6 +6,7 @@ import { prisma } from "./lib/prisma";
 import { requireAuth } from "./middleware/auth";
 import { errorHandler } from "./middleware/errorHandler";
 import { authRouter } from "./routes/auth";
+import { productsRouter } from "./routes/products";
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 app.use("/auth", authRouter);
+app.use("/products", productsRouter);
 
 app.get("/auth/me", requireAuth, (req: Request, res: Response) => {
   const authReq = req as Request & { user?: { userId: number; email: string } };
