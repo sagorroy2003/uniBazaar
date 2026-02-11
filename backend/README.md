@@ -44,7 +44,38 @@
 - `POST /auth/login` -> return JWT for valid credentials
 
 ### Protected (Bearer token required)
+- `GET /auth/me` -> current authenticated user
 - `POST /products` -> create product for authenticated user (`userId` is derived from token)
 - `PUT /products/:id` -> update product (owner only)
 - `PATCH /products/:id/sold` -> mark product sold (owner only)
 - `DELETE /products/:id` -> delete product (owner only)
+
+## Smoke test (curl)
+Use these examples after `npm run dev`.
+
+```bash
+# signup
+curl -X POST http://localhost:4000/auth/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@student.nstu.edu.bd","password":"password123"}'
+
+# login
+curl -X POST http://localhost:4000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"demo@student.nstu.edu.bd","password":"password123"}'
+
+# categories
+curl http://localhost:4000/categories
+
+# create product (replace <TOKEN> and valid categoryId)
+curl -X POST http://localhost:4000/products \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Physics Book","price":350,"categoryId":1,"description":"Used, good condition"}'
+
+# list products
+curl http://localhost:4000/products
+
+# me
+curl http://localhost:4000/auth/me -H "Authorization: Bearer <TOKEN>"
+```

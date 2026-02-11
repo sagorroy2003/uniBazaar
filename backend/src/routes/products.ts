@@ -1,9 +1,11 @@
 import { NextFunction, Request, Response, Router } from "express";
 
+import { ApiError } from "../errors";
 import { prisma } from "../lib/prisma";
 import { AuthenticatedRequest, requireAuth } from "../middleware/auth";
 
 type ProductBody = {
+  userId?: number;
   categoryId?: number;
   title?: string;
   description?: string;
@@ -17,21 +19,95 @@ type ProductBody = {
 
 const router = Router();
 
+function parseProductId(idParam: string): number {
+  const id = Number(idParam);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new ApiError(400, "Invalid product id");
+  }
+
+  return id;
+}
+
+async function ensureCategoryExists(categoryId: number): Promise<void> {
+  const category = await prisma.category.findUnique({ where: { id: categoryId } });
+
+  if (!category) {
+    throw new ApiError(400, "categoryId does not exist");
+  }
+}
+
+function normalizeProductInput(body: ProductBody): {
+  categoryId: number;
+  title: string;
+  price: number;
+  description?: string;
+  location?: string;
+  imageUrl?: string;
+  showEmail?: boolean;
+  showWhatsapp?: boolean;
+  showMessenger?: boolean;
+} {
+  if (body.userId !== undefined) {
+    throw new ApiError(400, "userId is not allowed in request body");
+  }
+
+  if (!body.title?.trim()) {
+    throw new ApiError(400, "title is required");
+  }
+
+  const price = Number(body.price);
+  if (!Number.isFinite(price) || price <= 0) {
+    throw new ApiError(400, "price must be greater than 0");
+  }
+
+  const categoryId = Number(body.categoryId);
+  if (!Number.isInteger(categoryId) || categoryId <= 0) {
+    throw new ApiError(400, "categoryId is required and must be a positive integer");
+  }
+
+  return {
+    categoryId,
+    title: body.title.trim(),
+    price,
+    description: body.description,
+    location: body.location,
+    imageUrl: body.imageUrl,
+    showEmail: body.showEmail,
+    showWhatsapp: body.showWhatsapp,
+    showMessenger: body.showMessenger,
+  };
+}
+
+async function getOwnedProductOrThrow(productId: number, userId: number) {
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+
+  if (!product) {
+    throw new ApiError(404, "Product not found");
+  }
+
+  if (product.userId !== userId) {
+    throw new ApiError(403, "Forbidden");
+  }
+
+  return product;
+}
+
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const categoryIdParam = req.query.categoryId;
-    let categoryId: number | undefined;
+    let categoryIdFilter: number | undefined;
 
     if (typeof categoryIdParam === "string") {
-      categoryId = Number(categoryIdParam);
-      if (!Number.isInteger(categoryId)) {
-        res.status(400).json({ message: "categoryId must be an integer" });
-        return;
+      const parsed = Number(categoryIdParam);
+      if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw new ApiError(400, "categoryId must be a positive integer");
       }
+      categoryIdFilter = parsed;
     }
 
     const products = await prisma.product.findMany({
-      where: categoryId ? { categoryId } : undefined,
+      where: categoryIdFilter !== undefined ? { categoryId: categoryIdFilter } : undefined,
       orderBy: { createdAt: "desc" },
     });
 
@@ -43,18 +119,11 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
 
 router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const id = Number(req.params.id);
-
-    if (!Number.isInteger(id)) {
-      res.status(400).json({ message: "Invalid product id" });
-      return;
-    }
-
-    const product = await prisma.product.findUnique({ where: { id } });
+    const productId = parseProductId(req.params.id);
+    const product = await prisma.product.findUnique({ where: { id: productId } });
 
     if (!product) {
-      res.status(404).json({ message: "Product not found" });
-      return;
+      throw new ApiError(404, "Product not found");
     }
 
     res.json(product);
@@ -65,49 +134,25 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
 
 router.post("/", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const { categoryId, title, description, price, location, imageUrl, showEmail, showWhatsapp, showMessenger } =
-      req.body as ProductBody;
-
     if (!req.user) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
+      throw new ApiError(401, "Unauthorized");
     }
 
-    if (!title?.trim()) {
-      res.status(400).json({ message: "title is required" });
-      return;
-    }
-
-    const numericPrice = Number(price);
-    if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
-      res.status(400).json({ message: "price must be greater than 0" });
-      return;
-    }
-
-    if (!Number.isInteger(Number(categoryId))) {
-      res.status(400).json({ message: "categoryId is required and must be an integer" });
-      return;
-    }
-
-    const validCategoryId = Number(categoryId);
-    const category = await prisma.category.findUnique({ where: { id: validCategoryId } });
-    if (!category) {
-      res.status(400).json({ message: "categoryId does not exist" });
-      return;
-    }
+    const normalized = normalizeProductInput(req.body as ProductBody);
+    await ensureCategoryExists(normalized.categoryId);
 
     const product = await prisma.product.create({
       data: {
         userId: req.user.userId,
-        categoryId: validCategoryId,
-        title: title.trim(),
-        description,
-        price: numericPrice,
-        location,
-        imageUrl,
-        showEmail,
-        showWhatsapp,
-        showMessenger,
+        categoryId: normalized.categoryId,
+        title: normalized.title,
+        description: normalized.description,
+        price: normalized.price,
+        location: normalized.location,
+        imageUrl: normalized.imageUrl,
+        showEmail: normalized.showEmail,
+        showWhatsapp: normalized.showWhatsapp,
+        showMessenger: normalized.showMessenger,
       },
     });
 
@@ -119,66 +164,28 @@ router.post("/", requireAuth, async (req: AuthenticatedRequest, res: Response, n
 
 router.put("/:id", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const id = Number(req.params.id);
-    const { categoryId, title, description, price, location, imageUrl, showEmail, showWhatsapp, showMessenger } =
-      req.body as ProductBody;
-
     if (!req.user) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
+      throw new ApiError(401, "Unauthorized");
     }
 
-    if (!Number.isInteger(id)) {
-      res.status(400).json({ message: "Invalid product id" });
-      return;
-    }
+    const productId = parseProductId(req.params.id);
+    await getOwnedProductOrThrow(productId, req.user.userId);
 
-    const existing = await prisma.product.findUnique({ where: { id } });
-    if (!existing) {
-      res.status(404).json({ message: "Product not found" });
-      return;
-    }
-
-    if (existing.userId !== req.user.userId) {
-      res.status(403).json({ message: "Forbidden" });
-      return;
-    }
-
-    if (!title?.trim()) {
-      res.status(400).json({ message: "title is required" });
-      return;
-    }
-
-    const numericPrice = Number(price);
-    if (!Number.isFinite(numericPrice) || numericPrice <= 0) {
-      res.status(400).json({ message: "price must be greater than 0" });
-      return;
-    }
-
-    if (!Number.isInteger(Number(categoryId))) {
-      res.status(400).json({ message: "categoryId is required and must be an integer" });
-      return;
-    }
-
-    const validCategoryId = Number(categoryId);
-    const category = await prisma.category.findUnique({ where: { id: validCategoryId } });
-    if (!category) {
-      res.status(400).json({ message: "categoryId does not exist" });
-      return;
-    }
+    const normalized = normalizeProductInput(req.body as ProductBody);
+    await ensureCategoryExists(normalized.categoryId);
 
     const updated = await prisma.product.update({
-      where: { id },
+      where: { id: productId },
       data: {
-        categoryId: validCategoryId,
-        title: title.trim(),
-        description,
-        price: numericPrice,
-        location,
-        imageUrl,
-        showEmail,
-        showWhatsapp,
-        showMessenger,
+        categoryId: normalized.categoryId,
+        title: normalized.title,
+        description: normalized.description,
+        price: normalized.price,
+        location: normalized.location,
+        imageUrl: normalized.imageUrl,
+        showEmail: normalized.showEmail,
+        showWhatsapp: normalized.showWhatsapp,
+        showMessenger: normalized.showMessenger,
       },
     });
 
@@ -190,31 +197,15 @@ router.put("/:id", requireAuth, async (req: AuthenticatedRequest, res: Response,
 
 router.patch("/:id/sold", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const id = Number(req.params.id);
-
     if (!req.user) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
+      throw new ApiError(401, "Unauthorized");
     }
 
-    if (!Number.isInteger(id)) {
-      res.status(400).json({ message: "Invalid product id" });
-      return;
-    }
-
-    const existing = await prisma.product.findUnique({ where: { id } });
-    if (!existing) {
-      res.status(404).json({ message: "Product not found" });
-      return;
-    }
-
-    if (existing.userId !== req.user.userId) {
-      res.status(403).json({ message: "Forbidden" });
-      return;
-    }
+    const productId = parseProductId(req.params.id);
+    await getOwnedProductOrThrow(productId, req.user.userId);
 
     const updated = await prisma.product.update({
-      where: { id },
+      where: { id: productId },
       data: { isSold: true },
     });
 
@@ -226,30 +217,14 @@ router.patch("/:id/sold", requireAuth, async (req: AuthenticatedRequest, res: Re
 
 router.delete("/:id", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    const id = Number(req.params.id);
-
     if (!req.user) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
+      throw new ApiError(401, "Unauthorized");
     }
 
-    if (!Number.isInteger(id)) {
-      res.status(400).json({ message: "Invalid product id" });
-      return;
-    }
+    const productId = parseProductId(req.params.id);
+    await getOwnedProductOrThrow(productId, req.user.userId);
 
-    const existing = await prisma.product.findUnique({ where: { id } });
-    if (!existing) {
-      res.status(404).json({ message: "Product not found" });
-      return;
-    }
-
-    if (existing.userId !== req.user.userId) {
-      res.status(403).json({ message: "Forbidden" });
-      return;
-    }
-
-    await prisma.product.delete({ where: { id } });
+    await prisma.product.delete({ where: { id: productId } });
 
     res.status(204).send();
   } catch (error) {

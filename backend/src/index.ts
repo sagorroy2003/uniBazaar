@@ -2,6 +2,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express, { NextFunction, Request, Response } from "express";
 
+import { ApiError } from "./errors";
 import { prisma } from "./lib/prisma";
 import { requireAuth } from "./middleware/auth";
 import { errorHandler } from "./middleware/errorHandler";
@@ -15,7 +16,7 @@ const port = Number(process.env.PORT) || 4000;
 
 
 if (!process.env.JWT_SECRET) {
-  throw new Error("JWT_SECRET is required");
+  throw new Error("JWT_SECRET is required. Set it in backend/.env before starting the server.");
 }
 
 app.use(cors());
@@ -46,8 +47,8 @@ app.get("/categories", async (_req: Request, res: Response, next: NextFunction) 
     });
 
     res.json(categories);
-  } catch (error) {
-    next(error);
+  } catch (_error) {
+    next(new ApiError(500, "Unable to fetch categories. Please try again later."));
   }
 });
 
