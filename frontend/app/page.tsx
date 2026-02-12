@@ -1,3 +1,14 @@
+<<<<<<< codex/add-step-by-step-feature
+import { Suspense } from "react";
+
+import HomePageClient from "./home-page-client";
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<p>Loading...</p>}>
+      <HomePageClient />
+    </Suspense>
+=======
 "use client";
 
 import Link from "next/link";
@@ -106,5 +117,6 @@ export default function HomePage() {
         </div>
       )}
     </div>
+>>>>>>> main
   );
 }

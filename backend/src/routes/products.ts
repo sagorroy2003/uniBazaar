@@ -117,6 +117,23 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+router.get("/me", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) {
+      throw new ApiError(401, "Unauthorized");
+    }
+
+    const products = await prisma.product.findMany({
+      where: { userId: req.user.userId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    res.json(products);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const productId = parseProductId(req.params.id);
