@@ -3,7 +3,7 @@
 <table border="0">
   <tr>
     <td width="100%" valign="top">
-      <h3>🛒 UniBazer - Multi-Vendor Student Marketplace</h3>
+      <h3>🛒 UniBaazer - Multi-Vendor Student Marketplace</h3>
       <img src="https://img.shields.io/badge/Status-In%20Progress-yellow?style=for-the-badge&logo=blueprint" />
       <img src="https://img.shields.io/badge/Architecture-MVC-blue?style=for-the-badge" />
       <p align="justify">
