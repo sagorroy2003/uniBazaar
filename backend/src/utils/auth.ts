@@ -37,6 +37,14 @@ export function verifyToken(token: string): AuthTokenPayload {
 export function isUniversityEmail(email: string): boolean {
   const domain = (process.env.UNIVERSITY_EMAIL_DOMAIN || "student.nstu.edu.bd").toLowerCase().trim();
   const normalizedEmail = email.toLowerCase().trim();
+  const emailFormatRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  return normalizedEmail.endsWith(`@${domain}`);
+  if (!emailFormatRegex.test(normalizedEmail)) {
+    return false;
+  }
+
+  const atIndex = normalizedEmail.lastIndexOf("@");
+  const emailDomain = normalizedEmail.slice(atIndex + 1);
+
+  return emailDomain === domain;
 }

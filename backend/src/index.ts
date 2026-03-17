@@ -29,15 +29,37 @@ app.get("/health", (_req: Request, res: Response) => {
 app.use("/auth", authRouter);
 app.use("/products", productsRouter);
 
-app.get("/auth/me", requireAuth, (req: Request, res: Response) => {
-  const authReq = req as Request & { user?: { userId: number; email: string } };
+app.get("/auth/me", requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const authReq = req as Request & { user?: { userId: number; email: string } };
 
-  if (!authReq.user) {
-    res.status(401).json({ message: "Unauthorized" });
-    return;
+    if (!authReq.user) {
+      res.status(401).json({ message: "Unauthorized" });
+      return;
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: authReq.user.userId },
+      select: {
+        id: true,
+        email: true,
+      },
+    });
+
+    if (!dbUser) {
+      res.status(401).json({ message: "Invalid token" });
+      return;
+    }
+
+    res.json({
+      user: {
+        userId: dbUser.id,
+        email: dbUser.email,
+      },
+    });
+  } catch (error) {
+    next(error);
   }
-
-  res.json({ user: authReq.user });
 });
 
 app.get("/categories", async (_req: Request, res: Response, next: NextFunction) => {

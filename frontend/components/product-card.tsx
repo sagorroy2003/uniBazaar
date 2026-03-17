@@ -79,9 +79,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
                         <>
                             <button
                                 onClick={() => onMarkSold?.(product.id)}
+                                disabled={product.isSold}
                                 className="flex-1 py-2 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-lg hover:bg-yellow-500 transition"
                             >
-                                {product.isSold ? 'Relist' : 'Sold'}
+                                {product.isSold ? 'Sold' : 'Mark Sold'}
                             </button>
                             <button
                                 onClick={() => onDelete?.(product.id)}
