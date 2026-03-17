@@ -14,6 +14,12 @@
    - `DATABASE_URL`
    - `JWT_SECRET` (required)
    - optional `UNIVERSITY_EMAIL_DOMAIN` (default: `student.nstu.edu.bd`)
+   - optional `NODE_ENV` (`production` on deployed environments)
+   - optional `CORS_ALLOWED_ORIGINS` (comma-separated frontend origins; required in production)
+   - optional `TRUST_PROXY` (`true` if running behind a reverse proxy/load balancer)
+   - optional `JSON_BODY_LIMIT` (default: `200kb`)
+   - optional `RATE_LIMIT_WINDOW_MS` and `RATE_LIMIT_MAX` (global API limiter)
+   - optional `AUTH_RATE_LIMIT_WINDOW_MS` and `AUTH_RATE_LIMIT_MAX` (auth limiter)
 3. Generate Prisma client:
    ```bash
    npm run prisma:generate
@@ -42,6 +48,11 @@
 ### Auth
 - `POST /auth/signup` -> create user (student domain only) + return JWT
 - `POST /auth/login` -> return JWT for valid credentials
+
+## Production Notes
+- Set `NODE_ENV=production` and configure `CORS_ALLOWED_ORIGINS` to your exact frontend URL(s).
+- If deployed behind a platform proxy (Render/Koyeb/Fly/NGINX), set `TRUST_PROXY=true` so rate limits use the correct client IP.
+- Rate limits are enabled globally and more strictly on `/auth` endpoints.
 
 ### Protected (Bearer token required)
 - `GET /auth/me` -> current authenticated user

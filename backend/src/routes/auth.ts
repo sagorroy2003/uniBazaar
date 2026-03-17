@@ -6,13 +6,49 @@ import { hashPassword, isUniversityEmail, signToken, verifyPassword } from "../u
 type AuthBody = {
   email?: string;
   password?: string;
+  phoneNumber?: string;
+  messengerUsername?: string;
 };
+
+function normalizeOptionalPhoneNumber(phoneNumber: string | undefined): string | undefined {
+  if (phoneNumber === undefined) {
+    return undefined;
+  }
+
+  const trimmed = phoneNumber.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed.length > 25) {
+    throw new Error("Phone number is too long");
+  }
+
+  return trimmed;
+}
+
+function normalizeOptionalMessengerUsername(username: string | undefined): string | undefined {
+  if (username === undefined) {
+    return undefined;
+  }
+
+  const trimmed = username.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (trimmed.length > 80) {
+    throw new Error("Messenger username is too long");
+  }
+
+  return trimmed;
+}
 
 const router = Router();
 
 router.post("/signup", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, password } = req.body as AuthBody;
+    const { email, password, phoneNumber, messengerUsername } = req.body as AuthBody;
 
     if (!email || !password) {
       res.status(400).json({ message: "Email and password are required" });
@@ -26,6 +62,17 @@ router.post("/signup", async (req: Request, res: Response, next: NextFunction) =
 
     if (!isUniversityEmail(email)) {
       res.status(400).json({ message: "Only valid student university email addresses are allowed" });
+      return;
+    }
+
+    let normalizedPhoneNumber: string | undefined;
+    let normalizedMessengerUsername: string | undefined;
+
+    try {
+      normalizedPhoneNumber = normalizeOptionalPhoneNumber(phoneNumber);
+      normalizedMessengerUsername = normalizeOptionalMessengerUsername(messengerUsername);
+    } catch (error) {
+      res.status(400).json({ message: error instanceof Error ? error.message : "Invalid profile fields" });
       return;
     }
 
@@ -46,10 +93,14 @@ router.post("/signup", async (req: Request, res: Response, next: NextFunction) =
       data: {
         email: normalizedEmail,
         passwordHash,
+        phoneNumber: normalizedPhoneNumber,
+        messengerUsername: normalizedMessengerUsername,
       },
       select: {
         id: true,
         email: true,
+        phoneNumber: true,
+        messengerUsername: true,
         createdAt: true,
       },
     });
@@ -101,6 +152,8 @@ router.post("/login", async (req: Request, res: Response, next: NextFunction) =>
       user: {
         id: user.id,
         email: user.email,
+        phoneNumber: user.phoneNumber,
+        messengerUsername: user.messengerUsername,
         createdAt: user.createdAt,
       },
       token,

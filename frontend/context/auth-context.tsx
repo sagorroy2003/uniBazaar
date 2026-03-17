@@ -7,6 +7,8 @@ import { ApiClientError, apiRequest } from "@/lib/api";
 type User = {
   userId: number;
   email: string;
+  phoneNumber?: string;
+  messengerUsername?: string;
 };
 
 type AuthResponse = {
@@ -14,6 +16,8 @@ type AuthResponse = {
     id?: number;
     userId?: number;
     email: string;
+    phoneNumber?: string | null;
+    messengerUsername?: string | null;
   };
   token: string;
 };
@@ -22,7 +26,7 @@ type AuthContextValue = {
   user: User | null;
   token: string | null; // kept for UI (optional)
   loading: boolean;
-  signup: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, profile?: { phoneNumber?: string; messengerUsername?: string }) => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshMe: () => Promise<void>;
@@ -30,10 +34,18 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function normalizeUser(input: { id?: number; userId?: number; email: string }): User {
+function normalizeUser(input: {
+  id?: number;
+  userId?: number;
+  email: string;
+  phoneNumber?: string | null;
+  messengerUsername?: string | null;
+}): User {
   return {
     userId: Number(input.userId ?? input.id),
     email: input.email,
+    phoneNumber: input.phoneNumber ?? undefined,
+    messengerUsername: input.messengerUsername ?? undefined,
   };
 }
 
@@ -49,7 +61,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function refreshMeInternal() {
     try {
-      const me = await apiRequest<{ user: { userId?: number; id?: number; email: string } }>("/auth/me");
+      const me = await apiRequest<{
+        user: {
+          userId?: number;
+          id?: number;
+          email: string;
+          phoneNumber?: string | null;
+          messengerUsername?: string | null;
+        };
+      }>("/auth/me");
       setUser(normalizeUser(me.user));
     } catch (error) {
       if (error instanceof ApiClientError && error.status === 401) {
@@ -76,12 +96,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function signup(email: string, password: string) {
+  async function signup(email: string, password: string, profile?: { phoneNumber?: string; messengerUsername?: string }) {
     setLoading(true);
     try {
       const response = await apiRequest<AuthResponse>("/auth/signup", {
         method: "POST",
+<<<<<<< HEAD
         body: { email, password },
+=======
+        body: { email, password, ...profile },
+>>>>>>> 00a0d9c (feat: add user contact fields and implement rate limiting for enhanced security)
       });
 
       localStorage.setItem("token", response.token);

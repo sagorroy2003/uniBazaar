@@ -10,6 +10,8 @@ export default function SignupPage() {
   const { signup } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [messengerUsername, setMessengerUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +21,10 @@ export default function SignupPage() {
     setError(null);
 
     try {
-      await signup(email, password);
+      await signup(email, password, {
+        phoneNumber,
+        messengerUsername,
+      });
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
@@ -50,6 +55,22 @@ export default function SignupPage() {
           onChange={(event) => setPassword(event.target.value)}
           minLength={8}
           required
+        />
+
+        <input
+          className="w-full rounded border px-3 py-2"
+          type="tel"
+          placeholder="Phone number (optional, for WhatsApp)"
+          value={phoneNumber}
+          onChange={(event) => setPhoneNumber(event.target.value)}
+        />
+
+        <input
+          className="w-full rounded border px-3 py-2"
+          type="text"
+          placeholder="Messenger username (optional)"
+          value={messengerUsername}
+          onChange={(event) => setMessengerUsername(event.target.value)}
         />
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}

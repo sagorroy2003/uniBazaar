@@ -19,6 +19,20 @@ type ProductBody = {
 
 const router = Router();
 
+function toWhatsappUrl(phoneNumber: string): string | undefined {
+  const digits = phoneNumber.replace(/[^\d]/g, "");
+
+  if (!digits) {
+    return undefined;
+  }
+
+  return `https://wa.me/${digits}`;
+}
+
+function toMessengerUrl(username: string): string {
+  return `https://m.me/${encodeURIComponent(username)}`;
+}
+
 function parseProductId(idParam: string): number {
   const id = Number(idParam);
 
@@ -93,6 +107,35 @@ async function getOwnedProductOrThrow(productId: number, userId: number) {
   return product;
 }
 
+async function getRequesterProfileOrThrow(userId: number): Promise<{ phoneNumber: string | null; messengerUsername: string | null }> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      phoneNumber: true,
+      messengerUsername: true,
+    },
+  });
+
+  if (!user) {
+    throw new ApiError(401, "Invalid token");
+  }
+
+  return user;
+}
+
+function validateContactToggleEligibility(
+  input: { showWhatsapp?: boolean; showMessenger?: boolean },
+  profile: { phoneNumber: string | null; messengerUsername: string | null },
+): void {
+  if (input.showWhatsapp && !profile.phoneNumber) {
+    throw new ApiError(400, "Show Whatsapp requires a phone number on your profile");
+  }
+
+  if (input.showMessenger && !profile.messengerUsername) {
+    throw new ApiError(400, "Show Messenger requires a messenger username on your profile");
+  }
+}
+
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const categoryIdParam = req.query.categoryId;
@@ -137,13 +180,48 @@ router.get("/me", requireAuth, async (req: AuthenticatedRequest, res: Response, 
 router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const productId = parseProductId(req.params.id);
-    const product = await prisma.product.findUnique({ where: { id: productId } });
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      include: {
+        user: {
+          select: {
+            email: true,
+            phoneNumber: true,
+            messengerUsername: true,
+          },
+        },
+      },
+    });
 
     if (!product) {
       throw new ApiError(404, "Product not found");
     }
 
-    res.json(product);
+    const sellerContact = {
+      email: product.showEmail ? product.user.email : undefined,
+      whatsapp: product.showWhatsapp && product.user.phoneNumber ? toWhatsappUrl(product.user.phoneNumber) : undefined,
+      messenger:
+        product.showMessenger && product.user.messengerUsername
+          ? toMessengerUrl(product.user.messengerUsername)
+          : undefined,
+    };
+
+    res.json({
+      id: product.id,
+      userId: product.userId,
+      categoryId: product.categoryId,
+      title: product.title,
+      description: product.description,
+      price: product.price,
+      location: product.location,
+      imageUrl: product.imageUrl,
+      isSold: product.isSold,
+      showEmail: product.showEmail,
+      showWhatsapp: product.showWhatsapp,
+      showMessenger: product.showMessenger,
+      createdAt: product.createdAt,
+      sellerContact,
+    });
   } catch (error) {
     next(error);
   }
@@ -156,6 +234,8 @@ router.post("/", requireAuth, async (req: AuthenticatedRequest, res: Response, n
     }
 
     const normalized = normalizeProductInput(req.body as ProductBody);
+    const requesterProfile = await getRequesterProfileOrThrow(req.user.userId);
+    validateContactToggleEligibility(normalized, requesterProfile);
     await ensureCategoryExists(normalized.categoryId);
 
     const product = await prisma.product.create({
@@ -189,6 +269,8 @@ router.put("/:id", requireAuth, async (req: AuthenticatedRequest, res: Response,
     await getOwnedProductOrThrow(productId, req.user.userId);
 
     const normalized = normalizeProductInput(req.body as ProductBody);
+    const requesterProfile = await getRequesterProfileOrThrow(req.user.userId);
+    validateContactToggleEligibility(normalized, requesterProfile);
     await ensureCategoryExists(normalized.categoryId);
 
     const updated = await prisma.product.update({
