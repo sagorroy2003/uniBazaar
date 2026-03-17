@@ -78,28 +78,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signup(email: string, password: string) {
     setLoading(true);
-    const response = await apiRequest<AuthResponse>("/auth/signup", {
-      method: "POST",
-      body: { email, password },
-    });
+    try {
+      const response = await apiRequest<AuthResponse>("/auth/signup", {
+        method: "POST",
+        body: { email, password },
+      });
 
-    localStorage.setItem("token", response.token);
-    setToken(response.token);
-    setUser(normalizeUser(response.user));
-    setLoading(false);
+      localStorage.setItem("token", response.token);
+      setToken(response.token);
+      setUser(normalizeUser(response.user));
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function login(email: string, password: string) {
     setLoading(true);
-    const response = await apiRequest<AuthResponse>("/auth/login", {
-      method: "POST",
-      body: { email, password },
-    });
+    try {
+      const response = await apiRequest<AuthResponse>("/auth/login", {
+        method: "POST",
+        body: { email, password },
+      });
 
-    localStorage.setItem("token", response.token);
-    setToken(response.token);
-    setUser(normalizeUser(response.user));
-    setLoading(false);
+      localStorage.setItem("token", response.token);
+      setToken(response.token);
+      setUser(normalizeUser(response.user));
+    } finally {
+      setLoading(false);
+    }
   }
 
   function logout() {

@@ -1,25 +1,34 @@
 "use client";
 
-import { CldUploadWidget } from 'next-cloudinary';
+import { CldUploadWidget } from "next-cloudinary";
 
 interface ImageUploadProps {
     onChange: (value: string) => void;
     value: string;
 }
 
-const ImageUpload: React.FC<ImageUploadProps> = ({ onChange, value }) => {
+type UploadResult = {
+    info?: {
+        secure_url?: string;
+    };
+};
+
+export default function ImageUpload({ onChange, value }: ImageUploadProps) {
     return (
         <CldUploadWidget
             uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
-            onSuccess={(result: any) => {
-                onChange(result.info.secure_url);
+            onSuccess={(result: unknown) => {
+                const secureUrl = (result as UploadResult | undefined)?.info?.secure_url;
+
+                if (typeof secureUrl === "string" && secureUrl.length > 0) {
+                    onChange(secureUrl);
+                }
             }}
             options={{
-                maxFiles: 1
+                maxFiles: 1,
             }}
         >
-            {/* THE FIX IS HERE: Added ': any' to the props */}
-            {({ open }: any) => {
+            {({ open }: { open?: () => void }) => {
                 return (
                     <div
                         onClick={() => open?.()}
@@ -27,11 +36,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onChange, value }) => {
                     >
                         {value ? (
                             <div className="absolute inset-0 w-full h-full">
-                                <img
-                                    className="object-cover w-full h-full"
-                                    src={value}
-                                    alt="Upload"
-                                />
+                                <img className="object-cover w-full h-full" src={value} alt="Upload" />
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center p-5 text-gray-500">
@@ -44,5 +49,3 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onChange, value }) => {
         </CldUploadWidget>
     );
 }
-
-export default ImageUpload;
