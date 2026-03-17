@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ProtectedRoute } from "@/components/protected-route";
+import { useAuth } from "@/context/auth-context";
 import { apiRequest } from "@/lib/api";
 import ImageUpload from "@/components/image-upload";
 
@@ -50,6 +51,7 @@ export default function NewProductPage() {
 
 function NewProductForm() {
   const router = useRouter();
+  const { user } = useAuth();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +85,16 @@ function NewProductForm() {
 
     void loadCategories();
   }, []);
+
+  useEffect(() => {
+    if (!user?.phoneNumber && form.showWhatsapp) {
+      setForm((prev) => ({ ...prev, showWhatsapp: false }));
+    }
+
+    if (!user?.messengerUsername && form.showMessenger) {
+      setForm((prev) => ({ ...prev, showMessenger: false }));
+    }
+  }, [user?.phoneNumber, user?.messengerUsername, form.showWhatsapp, form.showMessenger]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -224,12 +236,14 @@ function NewProductForm() {
           <input
             type="checkbox"
             checked={form.showWhatsapp}
+            disabled={!user?.phoneNumber}
             onChange={(event) =>
               setForm((prev) => ({
                 ...prev,
                 showWhatsapp: event.target.checked,
               }))
             }
+            title={!user?.phoneNumber ? "Add a phone number in your profile to enable WhatsApp contact" : undefined}
           />
           Show Whatsapp
         </label>
@@ -238,12 +252,14 @@ function NewProductForm() {
           <input
             type="checkbox"
             checked={form.showMessenger}
+            disabled={!user?.messengerUsername}
             onChange={(event) =>
               setForm((prev) => ({
                 ...prev,
                 showMessenger: event.target.checked,
               }))
             }
+            title={!user?.messengerUsername ? "Add a messenger username in your profile to enable Messenger contact" : undefined}
           />
           Show Messenger
         </label>

@@ -19,6 +19,11 @@ type Product = {
     showEmail?: boolean;
     showWhatsapp?: boolean;
     showMessenger?: boolean;
+    sellerContact?: {
+        email?: string;
+        whatsapp?: string;
+        messenger?: string;
+    };
 };
 
 export default function ProductDetailsClient({ id }: { id: string }) {
@@ -55,6 +60,10 @@ export default function ProductDetailsClient({ id }: { id: string }) {
     }, [id, isValidId]);
 
     const isOwner = Boolean(user && product && user.userId === product.userId);
+    const visibleContactCount =
+        Number(Boolean(product?.sellerContact?.email)) +
+        Number(Boolean(product?.sellerContact?.whatsapp)) +
+        Number(Boolean(product?.sellerContact?.messenger));
 
     async function markSold() {
         if (!product) return;
@@ -167,6 +176,44 @@ export default function ProductDetailsClient({ id }: { id: string }) {
 
                     {product.description ? (
                         <p className="mt-4 text-slate-800">{product.description}</p>
+                    ) : null}
+
+                    {!isOwner && visibleContactCount > 0 ? (
+                        <div className="mt-6 rounded-lg border bg-slate-50 p-4">
+                            <h2 className="text-sm font-semibold text-slate-700">Contact Seller</h2>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {product.sellerContact?.email ? (
+                                    <a
+                                        className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                                        href={`mailto:${product.sellerContact.email}`}
+                                    >
+                                        Email
+                                    </a>
+                                ) : null}
+
+                                {product.sellerContact?.whatsapp ? (
+                                    <a
+                                        className="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-100"
+                                        href={product.sellerContact.whatsapp}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        WhatsApp
+                                    </a>
+                                ) : null}
+
+                                {product.sellerContact?.messenger ? (
+                                    <a
+                                        className="rounded border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-700 hover:bg-blue-100"
+                                        href={product.sellerContact.messenger}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        Messenger
+                                    </a>
+                                ) : null}
+                            </div>
+                        </div>
                     ) : null}
 
                     {error ? <p className="mt-3 text-red-600">{error}</p> : null}
