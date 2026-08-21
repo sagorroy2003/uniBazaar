@@ -106,11 +106,8 @@ app.get("/auth/me", requireAuth, async (req: Request, res: Response, next: NextF
       select: {
         id: true,
         email: true,
-<<<<<<< HEAD
-=======
         phoneNumber: true,
         messengerUsername: true,
->>>>>>> 00a0d9c (feat: add user contact fields and implement rate limiting for enhanced security)
       },
     });
 
@@ -123,11 +120,8 @@ app.get("/auth/me", requireAuth, async (req: Request, res: Response, next: NextF
       user: {
         userId: dbUser.id,
         email: dbUser.email,
-<<<<<<< HEAD
-=======
         phoneNumber: dbUser.phoneNumber,
         messengerUsername: dbUser.messengerUsername,
->>>>>>> 00a0d9c (feat: add user contact fields and implement rate limiting for enhanced security)
       },
     });
   } catch (error) {

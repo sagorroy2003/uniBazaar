@@ -101,11 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await apiRequest<AuthResponse>("/auth/signup", {
         method: "POST",
-<<<<<<< HEAD
-        body: { email, password },
-=======
         body: { email, password, ...profile },
->>>>>>> 00a0d9c (feat: add user contact fields and implement rate limiting for enhanced security)
       });
 
       localStorage.setItem("token", response.token);

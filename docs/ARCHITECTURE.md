@@ -1035,9 +1035,6 @@ frontend/context/auth-context.tsx
 These files contained markers such as:
 
 ```text
-<<<<<<< HEAD
-=======
->>>>>>> ...
 ```
 
 This should be treated as a repository hygiene issue and tracked separately.
