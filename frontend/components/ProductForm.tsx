@@ -51,7 +51,7 @@ export default function ProductForm({
         fetchCategories();
     }, []);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const handleChange = (e: import("react").ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value, type } = e.target as HTMLInputElement;
         const checked = (e.target as HTMLInputElement).checked;
 
