@@ -24,18 +24,23 @@ export default function ProductForm({
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Initialize state with initialData (for Edit) or defaults (for Create)
-    const [formData, setFormData] = useState({
-        title: initialData?.title || "",
-        price: initialData?.price || "",
-        categoryId: initialData?.categoryId || "",
-        description: initialData?.description || "",
-        location: initialData?.location || "",
-        imageUrl: initialData?.imageUrl || "",
-        showEmail: initialData?.showEmail ?? true,
-        showWhatsapp: initialData?.showWhatsapp ?? false,
-        showMessenger: initialData?.showMessenger ?? false,
+    const getInitialFormData = (data?: any) => ({
+        title: data?.title ?? "",
+        price: data?.price ?? "",
+        categoryId: data?.categoryId ?? "",
+        description: data?.description ?? "",
+        location: data?.location ?? "",
+        imageUrl: data?.imageUrl ?? "",
+        showEmail: data?.showEmail ?? true,
+        showWhatsapp: data?.showWhatsapp ?? false,
+        showMessenger: data?.showMessenger ?? false,
     });
 
+    const [formData, setFormData] = useState(getInitialFormData(initialData));
+
+    useEffect(() => {
+        setFormData(getInitialFormData(initialData));
+    }, [initialData]);
     useEffect(() => {
         // Fetch categories on mount
         const fetchCategories = async () => {
