@@ -39,6 +39,7 @@ export default function ProductForm({
     useEffect(() => {
         // Fetch categories on mount
         const fetchCategories = async () => {
+            setIsLoadingCategories(true);
             try {
                 const data = await apiRequest("/categories");
                 setCategories(data as any[]);
