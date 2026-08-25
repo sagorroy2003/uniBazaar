@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "@/context/auth-context";
 import { apiRequest } from "@/lib/api";
+import Link from "next/link";
 
 type Product = {
     id: number;
@@ -219,7 +220,14 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                     {error ? <p className="mt-3 text-red-600">{error}</p> : null}
 
                     {isOwner ? (
-                        <div className="mt-6 flex gap-2">
+                        <div className="flex gap-4 mt-4">
+                            <Link
+                                href={`/products/${product.id}/edit`}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                            >
+                                Edit
+                            </Link>
+
                             <button
                                 type="button"
                                 className="rounded bg-amber-500 px-4 py-2 text-white disabled:opacity-60"
