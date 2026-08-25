@@ -67,19 +67,22 @@ export default function ProductForm({
         }));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: import("react").FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
 
-        // Format the payload so Prisma doesn't crash on string/number mismatches
-        const formattedPayload = {
-            ...formData,
-            price: Number(formData.price),
-            categoryId: Number(formData.categoryId),
-        };
+        try {
+            // Format the payload so Prisma doesn't crash on string/number mismatches
+            const formattedPayload = {
+                ...formData,
+                price: Number(formData.price),
+                categoryId: Number(formData.categoryId),
+            };
 
-        await onSubmit(formattedPayload);
-        setIsSubmitting(false);
+            await onSubmit(formattedPayload);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
