@@ -36,7 +36,11 @@ export default function ImageUpload({ onChange, value }: ImageUploadProps) {
                     >
                         {value ? (
                             <div className="absolute inset-0 w-full h-full">
-                                <img className="object-cover w-full h-full" src={value} alt="Upload" />
+                                <img
+                                    className="object-cover w-full h-full"
+                                    src={value?.startsWith("http") ? value : ""}
+                                    alt="Upload"
+                                />
                             </div>
                         ) : (
                             <div className="flex flex-col items-center justify-center p-5 text-gray-500">
