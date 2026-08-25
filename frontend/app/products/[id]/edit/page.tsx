@@ -1,19 +1,16 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import ProductForm from "@/components/ProductForm";
 import { apiRequest } from "@/lib/api";
 
-// 1. Update the type to be a Promise
-export default function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+export default function EditProductPage({ params }: { params: { id: string } }) {
     const router = useRouter();
     const { user } = useAuth();
 
-    // 2. Unwrap the params using React.use()
-    const { id } = use(params);
-
+    const { id } = params;
     const [product, setProduct] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
