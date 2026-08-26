@@ -86,3 +86,28 @@ export function markProductSold(id: number): Promise<Product> {
 export function deleteProduct(id: number): Promise<void> {
   return apiRequest<void>(`/products/${id}`, { method: "DELETE" });
 }
+
+/**
+ * Fetches all products for the marketplace.
+ * Safely handles optional URL query parameters for filtering.
+ */
+export function getProducts(categoryId?: string | null, search?: string | null): Promise<Product[]> {
+  // URLSearchParams automatically handles special characters and spacing (URL encoding)
+  const params = new URLSearchParams();
+
+  if (categoryId) {
+    params.append("categoryId", categoryId);
+  }
+
+  if (search) {
+    params.append("search", search);
+  }
+
+  // If we added parameters, convert them to a string (e.g., "categoryId=1&search=laptop")
+  const queryString = params.toString();
+  
+  // If queryString exists, append it with a "?", otherwise just request "/products"
+  const path = queryString ? `/products?${queryString}` : "/products";
+
+  return apiRequest<Product[]>(path);
+}

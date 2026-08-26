@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { useAuth } from "@/context/auth-context";
-import { apiRequest, deleteProduct, getMyProducts, markProductSold } from "@/lib/api";
+// NEW: Import the getProducts function we built in api.ts
+import { apiRequest, deleteProduct, getMyProducts, markProductSold, getProducts } from "@/lib/api";
 
 type Category = { id: number; name: string };
 
@@ -26,13 +27,23 @@ export default function HomePageClient() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
 
+  // 1. Grab both parameters from the URL
   const selectedCategoryId = searchParams.get("categoryId") || "";
+  const currentSearch = searchParams.get("search") || "";
   const view = searchParams.get("view") === "my" ? "my" : "all";
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 2. Local state just for the search input box so we don't fetch on every keystroke
+  const [searchInput, setSearchInput] = useState(currentSearch);
+
+  // 3. Keep the input box in sync if the user hits the browser "Back" button
+  useEffect(() => {
+    setSearchInput(currentSearch);
+  }, [currentSearch]);
 
   async function loadData() {
     try {
@@ -41,16 +52,13 @@ export default function HomePageClient() {
 
       const categoriesPromise = apiRequest<Category[]>("/categories");
 
+      // 4. Use our new clean api function for fetching products!
       const productsPromise =
         view === "my"
           ? user
             ? getMyProducts()
             : Promise.resolve([])
-          : apiRequest<Product[]>(
-            selectedCategoryId
-              ? `/products?categoryId=${encodeURIComponent(selectedCategoryId)}`
-              : "/products",
-          );
+          : getProducts(selectedCategoryId, currentSearch);
 
       const [categoriesData, productsData] = await Promise.all([categoriesPromise, productsPromise]);
       setCategories(categoriesData);
@@ -61,11 +69,56 @@ export default function HomePageClient() {
       setLoading(false);
     }
   }
+  
+  // NEW: The Debounce Effect for Live Search
+  useEffect(() => {
+    // 1. We set up a timer that will run after 400 milliseconds
+    const debounceTimer = setTimeout(() => {
+      // 2. Only trigger the URL change if the input actually differs from the URL
+      // (This prevents an infinite loop when the page first loads)
+      if (searchInput !== currentSearch) {
+        const params = new URLSearchParams(searchParams.toString());
+        const trimmed = searchInput.trim();
+        
+        if (trimmed) {
+          params.set("search", trimmed);
+        } else {
+          params.delete("search");
+        }
+        
+        const qs = params.toString();
+        router.push(qs ? `/?${qs}` : "/");
+      }
+    }, 400); // Wait 400ms after they stop typing
 
+    // 3. THE MAGIC TRICK (Cleanup Function): 
+    // If the user types another letter BEFORE the 400ms is up,
+    // React runs this cleanup function, which destroys the old timer.
+    return () => clearTimeout(debounceTimer);
+    
+  }, [searchInput, currentSearch, searchParams, router]);
+
+  // 5. Add currentSearch to the dependency array so it re-fetches when search changes
   useEffect(() => {
     void loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategoryId, view, user]);
+  }, [selectedCategoryId, currentSearch, view, user]);
+
+  // 6. Handle Search Form Submission
+  function onSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const params = new URLSearchParams(searchParams.toString());
+
+    const trimmed = searchInput.trim();
+    if (trimmed) {
+      params.set("search", trimmed);
+    } else {
+      params.delete("search");
+    }
+
+    const qs = params.toString();
+    router.push(qs ? `/?${qs}` : "/");
+  }
 
   function onCategoryChange(categoryId: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -81,6 +134,7 @@ export default function HomePageClient() {
     if (nextView === "my") {
       params.set("view", "my");
       params.delete("categoryId");
+      params.delete("search"); // Clear search when going to "My Products"
     } else {
       params.delete("view");
     }
@@ -147,13 +201,31 @@ export default function HomePageClient() {
       </div>
 
       {view === "all" ? (
-        <>
-          <label className="sr-only" htmlFor="category">
-            Category
-          </label>
+        // 7. Added a flex container so Search and Category filter sit next to each other
+        <div className="flex flex-col md:flex-row gap-2 w-full max-w-2xl">
+
+          {/* 8. The new Search Form */}
+          <form onSubmit={onSearchSubmit} className="flex flex-1 gap-2">
+            <input
+              type="text"
+              placeholder="Search by title or description..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="flex-1 rounded border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            />
+            <button
+              type="submit"
+              className="rounded bg-slate-900 px-4 py-2 text-white hover:bg-slate-800 transition"
+            >
+              Search
+            </button>
+          </form>
+
+          {/* Existing Category Filter */}
           <select
             id="category"
-            className="rounded border px-3 py-2"
+            aria-label="Category"
+            className="rounded border px-3 py-2 md:w-48"
             value={selectedCategoryId}
             onChange={(event) => onCategoryChange(event.target.value)}
           >
@@ -164,8 +236,10 @@ export default function HomePageClient() {
               </option>
             ))}
           </select>
-        </>
+        </div>
       ) : null}
+
+      {/* --- THE REST OF YOUR UI REMAINS EXACTLY THE SAME BELOW THIS POINT --- */}
 
       {loading && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -198,7 +272,6 @@ export default function HomePageClient() {
                   <div className="relative bg-slate-100">
                     <Link href={`/products/${product.id}`} className="block">
                       {product.imageUrl ? (
-                        // real image
                         <img
                           src={product.imageUrl}
                           alt={product.title}
@@ -206,7 +279,6 @@ export default function HomePageClient() {
                           loading="lazy"
                         />
                       ) : (
-                        /* Professional Placeholder */
                         <div className="flex flex-col items-center justify-center text-gray-400">
                           <svg className="w-full h-44 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -215,7 +287,6 @@ export default function HomePageClient() {
                         </div>
                       )}
 
-                      {/* Overlay — ALWAYS present */}
                       <div className="absolute inset-0 hidden items-center justify-center bg-black/40 text-white group-hover:flex">
                         <span className="rounded bg-white/90 px-3 py-1 text-sm text-black">
                           View Details
@@ -223,8 +294,6 @@ export default function HomePageClient() {
                       </div>
                     </Link>
 
-
-                    {/* Hover icon button like Daraz */}
                     {product.imageUrl ? (
                       <button
                         type="button"
