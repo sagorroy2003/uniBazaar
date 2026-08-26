@@ -138,19 +138,36 @@ function validateContactToggleEligibility(
 
 router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const categoryIdParam = req.query.categoryId;
-    let categoryIdFilter: number | undefined;
+    const { categoryId, search } = req.query;
 
-    if (typeof categoryIdParam === "string") {
-      const parsed = Number(categoryIdParam);
+    // 1. Create an empty object to hold our filters
+    // Start by defaulting to ONLY active (unsold) listings
+    const whereClause: Record<string, any> = {
+      isSold: false
+    };
+
+    // 2. Add category filter if provided (using your exact old validation logic)
+    if (typeof categoryId === "string") {
+      const parsed = Number(categoryId);
       if (!Number.isInteger(parsed) || parsed <= 0) {
         throw new ApiError(400, "categoryId must be a positive integer");
       }
-      categoryIdFilter = parsed;
+      whereClause.categoryId = parsed;
     }
 
+    // 3. Add search filter if provided
+    if (typeof search === "string" && search.trim() !== "") {
+      const searchTerm = search.trim();
+      whereClause.OR = [
+        { title: { contains: searchTerm } },
+        { description: { contains: searchTerm } },
+      ];
+    }
+
+    // 4. Pass the dynamically built whereClause to Prisma
     const products = await prisma.product.findMany({
-      where: categoryIdFilter !== undefined ? { categoryId: categoryIdFilter } : undefined,
+      // If no filters were added, pass undefined so Prisma returns everything
+      where: whereClause,
       orderBy: { createdAt: "desc" },
     });
 
