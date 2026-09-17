@@ -28,6 +28,12 @@ model Category {
   @@map("Categories")
 }
 
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  EXPIRED
+}
+
 model Product {
   id            Int      @id @default(autoincrement())
   userId        Int
@@ -37,11 +43,14 @@ model Product {
   price         Decimal  @db.Decimal(10, 2)
   location      String?
   imageUrl      String?
-  isSold        Boolean  @default(false)
   showEmail     Boolean  @default(true)
   showWhatsapp  Boolean  @default(false)
   showMessenger Boolean  @default(false)
+
+  status        ListingStatus @default(ACTIVE)
+  expiresAt     DateTime? 
   createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id])

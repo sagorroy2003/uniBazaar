@@ -16,7 +16,10 @@ type Product = {
     price: number | string;
     location?: string;
     imageUrl?: string;
-    isSold: boolean;
+    status: "ACTIVE" | "SOLD" | "EXPIRED";
+    expiresAt?: string | null;
+    createdAt: string;
+    updatedAt: string;
     showEmail?: boolean;
     showWhatsapp?: boolean;
     showMessenger?: boolean;
@@ -69,10 +72,19 @@ export default function ProductDetailsClient({ id }: { id: string }) {
     async function markSold() {
         if (!product) return;
 
+        // 1. Mandatory confirmation safeguard
+        const confirmed = window.confirm(
+            "Mark listing as sold?\n\nAre you sure this item has been sold? This will permanently remove the listing from the marketplace and cannot be undone."
+        );
+        if (!confirmed) return;
+
         try {
-            const updated = await apiRequest<Product>(`/products/${product.id}/sold`, {
+            // 2. Use the correct new lifecycle endpoint and body
+            const updated = await apiRequest<Product>(`/products/${product.id}/status`, {
                 method: "PATCH",
+                body: { status: "SOLD" }
             });
+
             setProduct(updated);
         } catch (err) {
             setError(err instanceof Error ? err.message : "Failed to mark sold");
@@ -165,9 +177,13 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                 <div className="rounded-xl border bg-white p-6">
                     <div className="flex items-start justify-between gap-4">
                         <h1 className="text-2xl font-semibold">{product.title}</h1>
-                        {product.isSold ? (
+                        {product.status === "SOLD" ? (
                             <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
                                 Sold
+                            </span>
+                        ) : product.status === "EXPIRED" ? (
+                            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-800">
+                                Expired
                             </span>
                         ) : null}
                     </div>
@@ -232,7 +248,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                                 type="button"
                                 className="rounded bg-amber-500 px-4 py-2 text-white disabled:opacity-60"
                                 onClick={markSold}
-                                disabled={product.isSold}
+                                disabled={product.status === "SOLD"}
                             >
                                 Mark Sold
                             </button>

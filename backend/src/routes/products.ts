@@ -4,6 +4,20 @@ import { ApiError } from "../errors";
 import { prisma } from "../lib/prisma";
 import { AuthenticatedRequest, requireAuth } from "../middleware/auth";
 
+const LISTING_EXPIRATION_DAYS = 30;
+
+function getExpirationDate(): Date {
+  const date = new Date();
+  date.setDate(date.getDate() + LISTING_EXPIRATION_DAYS);
+  return date;
+}
+
+function isProductActuallyExpired(product: { status: string; expiresAt: Date | null }): boolean {
+  if (product.status === "EXPIRED") return true;
+  if (product.status === "ACTIVE" && product.expiresAt && product.expiresAt < new Date()) return true;
+  return false;
+}
+
 type ProductBody = {
   userId?: number;
   categoryId?: number;
@@ -140,10 +154,13 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { categoryId, search } = req.query;
 
-    // 1. Create an empty object to hold our filters
-    // Start by defaulting to ONLY active (unsold) listings
     const whereClause: Record<string, any> = {
-      isSold: false
+      status: "ACTIVE",
+      // Lazy Expiration: Only fetch items whose expiresAt is in the future (or null for legacy safety)
+      OR: [
+        { expiresAt: { gt: new Date() } },
+        { expiresAt: null }
+      ]
     };
 
     // 2. Add category filter if provided (using your exact old validation logic)
@@ -158,9 +175,13 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     // 3. Add search filter if provided
     if (typeof search === "string" && search.trim() !== "") {
       const searchTerm = search.trim();
-      whereClause.OR = [
-        { title: { contains: searchTerm } },
-        { description: { contains: searchTerm } },
+      whereClause.AND = [
+        {
+          OR: [
+            { title: { contains: searchTerm } },
+            { description: { contains: searchTerm } },
+          ],
+        }
       ];
     }
 
@@ -232,7 +253,8 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
       price: product.price,
       location: product.location,
       imageUrl: product.imageUrl,
-      isSold: product.isSold,
+      status: product.status,
+      expiresAt: product.expiresAt,
       showEmail: product.showEmail,
       showWhatsapp: product.showWhatsapp,
       showMessenger: product.showMessenger,
@@ -267,6 +289,8 @@ router.post("/", requireAuth, async (req: AuthenticatedRequest, res: Response, n
         showEmail: normalized.showEmail,
         showWhatsapp: normalized.showWhatsapp,
         showMessenger: normalized.showMessenger,
+        status: "ACTIVE",
+        expiresAt: getExpirationDate(),
       },
     });
 
@@ -311,18 +335,43 @@ router.put("/:id", requireAuth, async (req: AuthenticatedRequest, res: Response,
   }
 });
 
-router.patch("/:id/sold", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+router.patch("/:id/status", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   try {
-    if (!req.user) {
-      throw new ApiError(401, "Unauthorized");
-    }
+    if (!req.user) throw new ApiError(401, "Unauthorized");
+    if (req.body.status !== "SOLD") throw new ApiError(400, "Only SOLD status transition is supported via this endpoint");
 
     const productId = parseProductId(req.params.id);
-    await getOwnedProductOrThrow(productId, req.user.userId);
+    const product = await getOwnedProductOrThrow(productId, req.user.userId);
+
+    if (product.status === "SOLD") throw new ApiError(400, "Listing is already sold");
+    if (isProductActuallyExpired(product)) throw new ApiError(400, "Cannot mark an expired listing as sold");
 
     const updated = await prisma.product.update({
       where: { id: productId },
-      data: { isSold: true },
+      data: { status: "SOLD" },
+    });
+
+    res.json(updated);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/:id/renew", requireAuth, async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+  try {
+    if (!req.user) throw new ApiError(401, "Unauthorized");
+
+    const productId = parseProductId(req.params.id);
+    const product = await getOwnedProductOrThrow(productId, req.user.userId);
+
+    if (product.status === "SOLD") throw new ApiError(400, "Cannot renew a sold listing");
+
+    const updated = await prisma.product.update({
+      where: { id: productId },
+      data: {
+        status: "ACTIVE",
+        expiresAt: getExpirationDate()
+      },
     });
 
     res.json(updated);

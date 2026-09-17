@@ -6,7 +6,15 @@ import { useEffect, useState } from "react";
 
 import { useAuth } from "@/context/auth-context";
 // NEW: Import the getProducts function we built in api.ts
-import { apiRequest, deleteProduct, getMyProducts, markProductSold, getProducts } from "@/lib/api";
+import {
+  apiRequest,
+  deleteProduct,
+  getMyProducts,
+  getProducts,
+  updateProductStatus,
+  renewProduct,
+  ListingStatus
+} from "@/lib/api";
 
 type Category = { id: number; name: string };
 
@@ -19,7 +27,10 @@ type Product = {
   price: number | string;
   location?: string;
   imageUrl?: string;
-  isSold: boolean;
+  status: ListingStatus;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export default function HomePageClient() {
@@ -69,7 +80,7 @@ export default function HomePageClient() {
       setLoading(false);
     }
   }
-  
+
   // NEW: The Debounce Effect for Live Search
   useEffect(() => {
     // 1. We set up a timer that will run after 400 milliseconds
@@ -79,13 +90,13 @@ export default function HomePageClient() {
       if (searchInput !== currentSearch) {
         const params = new URLSearchParams(searchParams.toString());
         const trimmed = searchInput.trim();
-        
+
         if (trimmed) {
           params.set("search", trimmed);
         } else {
           params.delete("search");
         }
-        
+
         const qs = params.toString();
         router.push(qs ? `/?${qs}` : "/");
       }
@@ -95,7 +106,7 @@ export default function HomePageClient() {
     // If the user types another letter BEFORE the 400ms is up,
     // React runs this cleanup function, which destroys the old timer.
     return () => clearTimeout(debounceTimer);
-    
+
   }, [searchInput, currentSearch, searchParams, router]);
 
   // 5. Add currentSearch to the dependency array so it re-fetches when search changes
@@ -148,11 +159,27 @@ export default function HomePageClient() {
       setError("Please login first");
       return;
     }
+    // NEW: Mandatory confirmation safeguard
+    const confirmed = window.confirm(
+      "Mark listing as sold?\n\nAre you sure this item has been sold? This will permanently remove the listing from the marketplace and cannot be undone."
+    );
+    if (!confirmed) return;
+
     try {
-      await markProductSold(id);
+      await updateProductStatus(id, "SOLD");
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to mark as sold");
+    }
+  }
+
+  async function onRenew(id: number) {
+    if (!user) return;
+    try {
+      await renewProduct(id);
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to renew listing");
     }
   }
 
@@ -263,6 +290,13 @@ export default function HomePageClient() {
             products.map((product) => {
               const isOwner = Boolean(user && user.userId === product.userId);
 
+              // NEW: Lazy Expiration Computation for UI
+              const isActuallyExpired =
+                product.status === "EXPIRED" ||
+                (product.status === "ACTIVE" && product.expiresAt && new Date(product.expiresAt) < new Date());
+
+              const displayStatus = product.status === "SOLD" ? "SOLD" : isActuallyExpired ? "EXPIRED" : "ACTIVE";
+
               return (
                 <div
                   key={product.id}
@@ -328,10 +362,11 @@ export default function HomePageClient() {
                       </button>
                     ) : null}
 
-                    {product.isSold ? (
-                      <span className="absolute left-3 top-3 rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">
-                        Sold
-                      </span>
+                    {/* BADGES */}
+                    {displayStatus === "SOLD" ? (
+                      <span className="absolute left-3 top-3 rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">Sold</span>
+                    ) : displayStatus === "EXPIRED" ? (
+                      <span className="absolute left-3 top-3 rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-800">Expired</span>
                     ) : null}
                   </div>
 
@@ -347,15 +382,28 @@ export default function HomePageClient() {
                     {/* Owner actions */}
                     {isOwner ? (
                       <div className="mt-3 flex gap-2">
-                        <button
-                          type="button"
-                          className="rounded bg-amber-500 px-3 py-1.5 text-sm text-white disabled:opacity-60"
-                          onClick={() => void onMarkSold(product.id)}
-                          disabled={product.isSold}
-                          title={product.isSold ? "Already sold" : "Mark as sold"}
-                        >
-                          Sold
-                        </button>
+                        {displayStatus === "ACTIVE" && (
+                          <button
+                            type="button"
+                            className="rounded bg-amber-500 px-3 py-1.5 text-sm text-white"
+                            onClick={() => void onMarkSold(product.id)}
+                          >
+                            Mark Sold
+                          </button>
+                        )}
+
+                        {displayStatus === "EXPIRED" && (
+                          <button
+                            type="button"
+                            className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white"
+                            onClick={() => void onRenew(product.id)}
+                          >
+                            Renew Listing
+                          </button>
+                        )}
+
+                        {/* Note: SOLD listings intentionally do not get a Mark Sold or Renew button */}
+
                         <button
                           type="button"
                           className="rounded bg-red-600 px-3 py-1.5 text-sm text-white"
