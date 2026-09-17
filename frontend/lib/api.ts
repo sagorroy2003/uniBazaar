@@ -63,6 +63,8 @@ export async function apiRequest<T>(
 
 /** ---- Optional typed helpers (good DX) ---- */
 
+export type ListingStatus = "ACTIVE" | "SOLD" | "EXPIRED";
+
 export type Product = {
   id: number;
   userId: number;
@@ -72,15 +74,25 @@ export type Product = {
   price: number | string;
   location?: string;
   imageUrl?: string;
-  isSold: boolean;
+  status: ListingStatus;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export function getMyProducts(): Promise<Product[]> {
   return apiRequest<Product[]>("/products/me");
 }
 
-export function markProductSold(id: number): Promise<Product> {
-  return apiRequest<Product>(`/products/${id}/sold`, { method: "PATCH" });
+export function updateProductStatus(id: number, status: ListingStatus): Promise<Product> {
+  return apiRequest<Product>(`/products/${id}/status`, {
+    method: "PATCH",
+    body: { status }
+  });
+}
+
+export function renewProduct(id: number): Promise<Product> {
+  return apiRequest<Product>(`/products/${id}/renew`, { method: "PATCH" });
 }
 
 export function deleteProduct(id: number): Promise<void> {
@@ -105,7 +117,7 @@ export function getProducts(categoryId?: string | null, search?: string | null):
 
   // If we added parameters, convert them to a string (e.g., "categoryId=1&search=laptop")
   const queryString = params.toString();
-  
+
   // If queryString exists, append it with a "?", otherwise just request "/products"
   const path = queryString ? `/products?${queryString}` : "/products";
 
