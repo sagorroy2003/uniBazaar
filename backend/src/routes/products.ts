@@ -366,8 +366,16 @@ router.patch("/:id/renew", requireAuth, async (req: AuthenticatedRequest, res: R
 
     if (product.status === "SOLD") throw new ApiError(400, "Cannot renew a sold listing");
 
+    // Check if the product is actually expired before allowing renewal
+    if (!isProductActuallyExpired(product)) {
+      throw new ApiError(400, "Only expired listings can be renewed");
+    }
+
     const updated = await prisma.product.update({
-      where: { id: productId },
+      where: {
+        id: productId,
+        status: "EXPIRED"
+      },
       data: {
         status: "ACTIVE",
         expiresAt: getExpirationDate()
