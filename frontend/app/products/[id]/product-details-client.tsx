@@ -181,8 +181,11 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                             <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
                                 Sold
                             </span>
-                        ) : product.status === "EXPIRED" ? (
-                            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-800">
+                        ) : product.status === "EXPIRED" ||
+                            (product.status === "ACTIVE" &&
+                                Boolean(product.expiresAt) &&
+                                new Date(product.expiresAt!) < new Date()) ? (
+                            <span className="rounded-full bg-red-10 0 px-3 py-1 text-xs font-medium text-red-800">
                                 Expired
                             </span>
                         ) : null}
