@@ -2,14 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
-import { ApiClientError, apiRequest } from "@/lib/api";
-
-type User = {
-  userId: number;
-  email: string;
-  phoneNumber?: string;
-  messengerUsername?: string;
-};
+import { ApiClientError, apiRequest, User } from "@/lib/api";
 
 type AuthResponse = {
   user: {
@@ -18,6 +11,8 @@ type AuthResponse = {
     email: string;
     phoneNumber?: string | null;
     messengerUsername?: string | null;
+    whatsappUsername?: string | null;
+    avatarUrl?: string | null;
   };
   token: string;
 };
@@ -40,12 +35,16 @@ function normalizeUser(input: {
   email: string;
   phoneNumber?: string | null;
   messengerUsername?: string | null;
+  whatsappUsername?: string | null;
+  avatarUrl?: string | null;
 }): User {
   return {
     userId: Number(input.userId ?? input.id),
     email: input.email,
     phoneNumber: input.phoneNumber ?? undefined,
     messengerUsername: input.messengerUsername ?? undefined,
+    whatsappUsername: input.whatsappUsername ?? undefined,
+    avatarUrl: input.avatarUrl ?? undefined,
   };
 }
 
@@ -68,6 +67,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: string;
           phoneNumber?: string | null;
           messengerUsername?: string | null;
+          whatsappUsername?: string | null;
+          avatarUrl?: string | null;
         };
       }>("/auth/me");
       setUser(normalizeUser(me.user));
