@@ -12,7 +12,7 @@ type AuthBody = {
   avatarUrl?: string;
 };
 
-function normalizeOptionalPhoneNumber(phoneNumber: string | undefined): string | undefined {
+export function normalizeOptionalPhoneNumber(phoneNumber: string | undefined): string | undefined {
   if (phoneNumber === undefined) {
     return undefined;
   }
@@ -29,7 +29,7 @@ function normalizeOptionalPhoneNumber(phoneNumber: string | undefined): string |
   return trimmed;
 }
 
-function normalizeOptionalUsername(username: string | undefined): string | undefined {
+export function normalizeOptionalUsername(username: string | undefined): string | undefined {
   if (username === undefined) return undefined;
 
   const trimmed = username.trim();
@@ -42,13 +42,13 @@ function normalizeOptionalUsername(username: string | undefined): string | undef
   return trimmed;
 }
 
-function normalizeOptionalUrl(url: string | undefined): string | undefined {
+export function normalizeOptionalUrl(url: string | undefined): string | undefined {
   if (url === undefined) return undefined;
 
   const trimmed = url.trim();
   if (!trimmed) return undefined;
-
-  if (trimmed.length > 500) {
+  // Change this from 500 to 191 to perfectly match the database limit
+  if (trimmed.length > 191) {
     throw new Error("URL is too long");
   }
 

@@ -74,15 +74,17 @@ export type User = {
   avatarUrl?: string | null;
 };
 
-export function getProfile(): Promise<User> {
-  return apiRequest<User>("/users/me");
+export async function getProfile(): Promise<User> {
+  const res = await apiRequest<any>("/users/me");
+  return { ...res, userId: res.id };
 }
 
-export function updateProfile(data: Partial<User>): Promise<User> {
-  return apiRequest<User>("/users/me", {
+export async function updateProfile(data: Partial<User>): Promise<User> {
+  const res = await apiRequest<any>("/users/me", {
     method: "PATCH",
     body: data,
   });
+  return { ...res, userId: res.id };
 }
 
 export type Product = {

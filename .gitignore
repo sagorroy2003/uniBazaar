@@ -6,3 +6,4 @@ frontend/.next/
 .env
 *.log
 .env.local
+*.tsbuildinfo
