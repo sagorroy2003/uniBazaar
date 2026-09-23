@@ -8,9 +8,11 @@ type AuthBody = {
   password?: string;
   phoneNumber?: string;
   messengerUsername?: string;
+  whatsappUsername?: string;
+  avatarUrl?: string;
 };
 
-function normalizeOptionalPhoneNumber(phoneNumber: string | undefined): string | undefined {
+export function normalizeOptionalPhoneNumber(phoneNumber: string | undefined): string | undefined {
   if (phoneNumber === undefined) {
     return undefined;
   }
@@ -27,18 +29,27 @@ function normalizeOptionalPhoneNumber(phoneNumber: string | undefined): string |
   return trimmed;
 }
 
-function normalizeOptionalMessengerUsername(username: string | undefined): string | undefined {
-  if (username === undefined) {
-    return undefined;
-  }
+export function normalizeOptionalUsername(username: string | undefined): string | undefined {
+  if (username === undefined) return undefined;
 
   const trimmed = username.trim();
-  if (!trimmed) {
-    return undefined;
-  }
+  if (!trimmed) return undefined;
 
   if (trimmed.length > 80) {
-    throw new Error("Messenger username is too long");
+    throw new Error("Username is too long");
+  }
+
+  return trimmed;
+}
+
+export function normalizeOptionalUrl(url: string | undefined): string | undefined {
+  if (url === undefined) return undefined;
+
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  // Change this from 500 to 191 to perfectly match the database limit
+  if (trimmed.length > 191) {
+    throw new Error("URL is too long");
   }
 
   return trimmed;
@@ -48,7 +59,7 @@ const router = Router();
 
 router.post("/signup", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, password, phoneNumber, messengerUsername } = req.body as AuthBody;
+    const { email, password, phoneNumber, messengerUsername, whatsappUsername, avatarUrl } = req.body as AuthBody;
 
     if (!email || !password) {
       res.status(400).json({ message: "Email and password are required" });
@@ -67,10 +78,14 @@ router.post("/signup", async (req: Request, res: Response, next: NextFunction) =
 
     let normalizedPhoneNumber: string | undefined;
     let normalizedMessengerUsername: string | undefined;
+    let normalizedWhatsappUsername: string | undefined;
+    let normalizedAvatarUrl: string | undefined;
 
     try {
       normalizedPhoneNumber = normalizeOptionalPhoneNumber(phoneNumber);
-      normalizedMessengerUsername = normalizeOptionalMessengerUsername(messengerUsername);
+      normalizedMessengerUsername = normalizeOptionalUsername(messengerUsername);
+      normalizedWhatsappUsername = normalizeOptionalUsername(whatsappUsername);
+      normalizedAvatarUrl = normalizeOptionalUrl(avatarUrl);
     } catch (error) {
       res.status(400).json({ message: error instanceof Error ? error.message : "Invalid profile fields" });
       return;
@@ -95,12 +110,16 @@ router.post("/signup", async (req: Request, res: Response, next: NextFunction) =
         passwordHash,
         phoneNumber: normalizedPhoneNumber,
         messengerUsername: normalizedMessengerUsername,
+        whatsappUsername: normalizedWhatsappUsername,
+        avatarUrl: normalizedAvatarUrl,
       },
       select: {
         id: true,
         email: true,
         phoneNumber: true,
         messengerUsername: true,
+        whatsappUsername: true,
+        avatarUrl: true,
         createdAt: true,
       },
     });
@@ -154,6 +173,8 @@ router.post("/login", async (req: Request, res: Response, next: NextFunction) =>
         email: user.email,
         phoneNumber: user.phoneNumber,
         messengerUsername: user.messengerUsername,
+        whatsappUsername: user.whatsappUsername,
+        avatarUrl: user.avatarUrl,
         createdAt: user.createdAt,
       },
       token,

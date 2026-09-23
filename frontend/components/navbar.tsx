@@ -26,6 +26,9 @@ export function Navbar() {
         ) : (
           <div className="flex items-center gap-3 text-sm">
             <span className="text-slate-600">{user.email}</span>
+            <Link href="/profile" className="font-medium hover:text-gray-300">
+              Profile
+            </Link>
             <Link href="/products/new" className="rounded bg-blue-600 px-3 py-1.5 text-white">
               New Product
             </Link>

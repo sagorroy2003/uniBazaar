@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import express, { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
+import userRoutes from "./routes/users";
 
 import { ApiError } from "./errors";
 import { prisma } from "./lib/prisma";
@@ -91,6 +92,7 @@ app.use(globalRateLimiter);
 
 app.use("/auth", authRateLimiter, authRouter);
 app.use("/products", productsRouter);
+app.use("/users", userRoutes);
 
 app.get("/auth/me", requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -108,6 +110,9 @@ app.get("/auth/me", requireAuth, async (req: Request, res: Response, next: NextF
         email: true,
         phoneNumber: true,
         messengerUsername: true,
+        whatsappUsername: true,
+        avatarUrl: true,
+        createdAt: true,
       },
     });
 
@@ -122,6 +127,8 @@ app.get("/auth/me", requireAuth, async (req: Request, res: Response, next: NextF
         email: dbUser.email,
         phoneNumber: dbUser.phoneNumber,
         messengerUsername: dbUser.messengerUsername,
+        whatsappUsername: dbUser.whatsappUsername,
+        avatarUrl: dbUser.avatarUrl,
       },
     });
   } catch (error) {

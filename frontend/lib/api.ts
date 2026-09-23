@@ -65,6 +65,28 @@ export async function apiRequest<T>(
 
 export type ListingStatus = "ACTIVE" | "SOLD" | "EXPIRED";
 
+export type User = {
+  userId: number;
+  email: string;
+  phoneNumber?: string | null;
+  messengerUsername?: string | null;
+  whatsappUsername?: string | null;
+  avatarUrl?: string | null;
+};
+
+export async function getProfile(): Promise<User> {
+  const res = await apiRequest<any>("/users/me");
+  return { ...res, userId: res.id };
+}
+
+export async function updateProfile(data: Partial<User>): Promise<User> {
+  const res = await apiRequest<any>("/users/me", {
+    method: "PATCH",
+    body: data,
+  });
+  return { ...res, userId: res.id };
+}
+
 export type Product = {
   id: number;
   userId: number;
