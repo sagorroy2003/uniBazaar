@@ -371,16 +371,35 @@ router.patch("/:id/renew", requireAuth, async (req: AuthenticatedRequest, res: R
       throw new ApiError(400, "Only expired listings can be renewed");
     }
 
-    const updated = await prisma.product.update({
+    const renewalResult = await prisma.product.updateMany({
       where: {
         id: productId,
-        status: "EXPIRED"
+        userId: req.user.userId,
+        OR: [
+          { status: "EXPIRED" },
+          {
+            status: "ACTIVE",
+            expiresAt: { lt: new Date() },
+          },
+        ],
       },
       data: {
         status: "ACTIVE",
-        expiresAt: getExpirationDate()
+        expiresAt: getExpirationDate(),
       },
     });
+
+    if (renewalResult.count === 0) {
+      throw new ApiError(400, "Listing is no longer eligible for renewal");
+    }
+
+    const updated = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!updated) {
+      throw new ApiError(404, "Product not found");
+    }
 
     res.json(updated);
   } catch (error) {
