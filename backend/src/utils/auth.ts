@@ -35,16 +35,15 @@ export function verifyToken(token: string): AuthTokenPayload {
 }
 
 export function isUniversityEmail(email: string): boolean {
-  const domain = (process.env.UNIVERSITY_EMAIL_DOMAIN || "student.nstu.edu.bd").toLowerCase().trim();
-  const normalizedEmail = email.toLowerCase().trim();
-  const emailFormatRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email) return false;
 
-  if (!emailFormatRegex.test(normalizedEmail)) {
+  // 1. Safe, linear-time regex that prevents catastrophic backtracking
+  const safeEmailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!safeEmailRegex.test(email)) {
     return false;
   }
 
-  const atIndex = normalizedEmail.lastIndexOf("@");
-  const emailDomain = normalizedEmail.slice(atIndex + 1);
-
-  return emailDomain === domain;
+  // 2. Exact domain matching using standard string methods (ReDoS-proof)
+  const lowerEmail = email.toLowerCase();
+  return lowerEmail.endsWith("@student.nstu.edu.bd") || lowerEmail.endsWith("@nstu.edu.bd");
 }
