@@ -52,10 +52,10 @@ router.patch("/me", requireAuth, async (req: AuthenticatedRequest, res: Response
         const user = await prisma.user.update({
             where: { id: req.user.userId },
             data: {
-                phoneNumber: phoneNumber || null,
-                messengerUsername: messengerUsername || null,
-                whatsappUsername: whatsappUsername || null,
-                avatarUrl: avatarUrl || null,
+                phoneNumber: normalizedPhone || null,
+                messengerUsername: normalizedMessenger || null,
+                whatsappUsername: normalizedWhatsapp || null,
+                avatarUrl: normalizedAvatar || null,
             },
             select: {
                 id: true,

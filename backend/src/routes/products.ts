@@ -33,14 +33,26 @@ type ProductBody = {
 
 const router = Router();
 
-function toWhatsappUrl(phoneNumber: string): string | undefined {
-  const digits = phoneNumber.replace(/[^\d]/g, "");
+function normalizeWhatsappUsernameForLink(username: string | null | undefined): string | null {
+  if (!username) return null;
+  const trimmed = username.trim().replace(/^@+/, "");
+  return trimmed.length > 0 ? trimmed : null;
+}
 
-  if (!digits) {
-    return undefined;
+function toWhatsappUrl(profile: {
+  whatsappUsername?: string | null;
+  phoneNumber?: string | null;
+}): string | undefined {
+  // 1. Prefer WhatsApp username first so the seller's phone number stays private
+  const cleanUsername = normalizeWhatsappUsernameForLink(profile.whatsappUsername);
+  if (cleanUsername) {
+    return `https://wa.me/${encodeURIComponent(cleanUsername)}`;
   }
 
-  return `https://wa.me/${digits}`;
+  // 2. Fall back to international phone number if no username is set
+  if (!profile.phoneNumber) return undefined;
+  const digits = profile.phoneNumber.replace(/\D/g, "");
+  return digits.length > 0 ? `https://wa.me/${digits}` : undefined;
 }
 
 function toMessengerUrl(username: string): string {
@@ -80,7 +92,7 @@ function normalizeProductInput(body: ProductBody): {
     throw new ApiError(400, "userId is not allowed in request body");
   }
 
-  if (!body.title?.trim()) {
+  if (typeof body.title !== "string" || !body.title.trim()) {
     throw new ApiError(400, "title is required");
   }
 
@@ -92,6 +104,26 @@ function normalizeProductInput(body: ProductBody): {
   const categoryId = Number(body.categoryId);
   if (!Number.isInteger(categoryId) || categoryId <= 0) {
     throw new ApiError(400, "categoryId is required and must be a positive integer");
+  }
+
+  for (const [field, value] of [
+    ["description", body.description],
+    ["location", body.location],
+    ["imageUrl", body.imageUrl],
+  ] as const) {
+    if (value !== undefined && typeof value !== "string") {
+      throw new ApiError(400, `${field} must be a string`);
+    }
+  }
+
+  for (const [field, value] of [
+    ["showEmail", body.showEmail],
+    ["showWhatsapp", body.showWhatsapp],
+    ["showMessenger", body.showMessenger],
+  ] as const) {
+    if (value !== undefined && typeof value !== "boolean") {
+      throw new ApiError(400, `${field} must be a boolean`);
+    }
   }
 
   return {
@@ -121,11 +153,12 @@ async function getOwnedProductOrThrow(productId: number, userId: number) {
   return product;
 }
 
-async function getRequesterProfileOrThrow(userId: number): Promise<{ phoneNumber: string | null; messengerUsername: string | null }> {
+async function getRequesterProfileOrThrow(userId: number): Promise<{ phoneNumber: string | null; messengerUsername: string | null; whatsappUsername: string | null }> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       phoneNumber: true,
+      whatsappUsername: true,
       messengerUsername: true,
     },
   });
@@ -139,10 +172,10 @@ async function getRequesterProfileOrThrow(userId: number): Promise<{ phoneNumber
 
 function validateContactToggleEligibility(
   input: { showWhatsapp?: boolean; showMessenger?: boolean },
-  profile: { phoneNumber: string | null; messengerUsername: string | null },
+  profile: { phoneNumber: string | null; messengerUsername: string | null; whatsappUsername: string | null },
 ): void {
-  if (input.showWhatsapp && !profile.phoneNumber) {
-    throw new ApiError(400, "Show Whatsapp requires a phone number on your profile");
+  if (input.showWhatsapp && !profile.phoneNumber && !profile.whatsappUsername) {
+    throw new ApiError(400, "Show Whatsapp requires a phone number or WhatsApp username on your profile");
   }
 
   if (input.showMessenger && !profile.messengerUsername) {
@@ -185,9 +218,7 @@ router.get("/", async (req: Request, res: Response, next: NextFunction) => {
       ];
     }
 
-    // 4. Pass the dynamically built whereClause to Prisma
     const products = await prisma.product.findMany({
-      // If no filters were added, pass undefined so Prisma returns everything
       where: whereClause,
       orderBy: { createdAt: "desc" },
     });
@@ -226,6 +257,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
             email: true,
             phoneNumber: true,
             messengerUsername: true,
+            whatsappUsername: true,
           },
         },
       },
@@ -237,7 +269,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
 
     const sellerContact = {
       email: product.showEmail ? product.user.email : undefined,
-      whatsapp: product.showWhatsapp && product.user.phoneNumber ? toWhatsappUrl(product.user.phoneNumber) : undefined,
+      whatsapp: product.showWhatsapp && (product.user.whatsappUsername || product.user.phoneNumber) ? toWhatsappUrl(product.user) : undefined,
       messenger:
         product.showMessenger && product.user.messengerUsername
           ? toMessengerUrl(product.user.messengerUsername)
@@ -259,6 +291,7 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
       showWhatsapp: product.showWhatsapp,
       showMessenger: product.showMessenger,
       createdAt: product.createdAt,
+      updatedAt: product.updatedAt,
       sellerContact,
     });
   } catch (error) {
