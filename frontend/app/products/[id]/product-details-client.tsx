@@ -2,33 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-
-import { useAuth } from "@/context/auth-context";
-import { apiRequest } from "@/lib/api";
 import Link from "next/link";
 
-type Product = {
-    id: number;
-    userId: number;
-    categoryId: number;
-    title: string;
-    description?: string;
-    price: number | string;
-    location?: string;
-    imageUrl?: string;
-    status: "ACTIVE" | "SOLD" | "EXPIRED";
-    expiresAt?: string | null;
-    createdAt: string;
-    updatedAt: string;
-    showEmail?: boolean;
-    showWhatsapp?: boolean;
-    showMessenger?: boolean;
-    sellerContact?: {
-        email?: string;
-        whatsapp?: string;
-        messenger?: string;
-    };
-};
+import { useAuth } from "@/context/auth-context";
+import { apiRequest, Product } from "@/lib/api";
 
 export default function ProductDetailsClient({ id }: { id: string }) {
     const router = useRouter();
@@ -64,10 +41,24 @@ export default function ProductDetailsClient({ id }: { id: string }) {
     }, [id, isValidId]);
 
     const isOwner = Boolean(user && product && user.userId === product.userId);
-    const visibleContactCount =
-        Number(Boolean(product?.sellerContact?.email)) +
-        Number(Boolean(product?.sellerContact?.whatsapp)) +
-        Number(Boolean(product?.sellerContact?.messenger));
+    const isSold = product?.status === "SOLD";
+    const isExpired =
+        product?.status === "EXPIRED" ||
+        (product?.status === "ACTIVE" &&
+            Boolean(product?.expiresAt) &&
+            new Date(product.expiresAt!) < new Date());
+    const isAvailable = Boolean(product && !isSold && !isExpired);
+
+    const emailHref = product?.sellerContact?.email
+        ? product.sellerContact.email.startsWith("mailto:")
+            ? product.sellerContact.email
+            : `mailto:${product.sellerContact.email}`
+        : undefined;
+    const whatsappHref = product?.sellerContact?.whatsapp;
+    const messengerHref = product?.sellerContact?.messenger;
+
+    const hasContactMethods = Boolean(emailHref || whatsappHref || messengerHref);
+    const showContactSeller = !isOwner && isAvailable && hasContactMethods;
 
     async function markSold() {
         if (!product) return;
@@ -79,6 +70,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
         if (!confirmed) return;
 
         try {
+            setError(null);
             // 2. Use the correct new lifecycle endpoint and body
             const updated = await apiRequest<Product>(`/products/${product.id}/status`, {
                 method: "PATCH",
@@ -98,6 +90,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
         if (!confirmed) return;
 
         try {
+            setError(null);
             await apiRequest<void>(`/products/${product.id}`, { method: "DELETE" });
             router.push("/");
         } catch (err) {
@@ -106,7 +99,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
     }
 
     if (loading) return <p>Loading...</p>;
-    if (error) return <p className="text-red-600">{error}</p>;
+    if (error && !product) return <p className="text-red-600">{error}</p>;
     if (!product) return <p>Product not found.</p>;
 
     return (
@@ -177,15 +170,12 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                 <div className="rounded-xl border bg-white p-6">
                     <div className="flex items-start justify-between gap-4">
                         <h1 className="text-2xl font-semibold">{product.title}</h1>
-                        {product.status === "SOLD" ? (
+                        {isSold ? (
                             <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
                                 Sold
                             </span>
-                        ) : product.status === "EXPIRED" ||
-                            (product.status === "ACTIVE" &&
-                                Boolean(product.expiresAt) &&
-                                new Date(product.expiresAt!) < new Date()) ? (
-                            <span className="rounded-full bg-red-10 0 px-3 py-1 text-xs font-medium text-red-800">
+                        ) : isExpired ? (
+                            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-800">
                                 Expired
                             </span>
                         ) : null}
@@ -198,38 +188,41 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                         <p className="mt-4 text-slate-800">{product.description}</p>
                     ) : null}
 
-                    {!isOwner && visibleContactCount > 0 ? (
+                    {showContactSeller ? (
                         <div className="mt-6 rounded-lg border bg-slate-50 p-4">
                             <h2 className="text-sm font-semibold text-slate-700">Contact Seller</h2>
                             <div className="mt-3 flex flex-wrap gap-2">
-                                {product.sellerContact?.email ? (
-                                    <a
-                                        className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                                        href={`mailto:${product.sellerContact.email}`}
-                                    >
-                                        Email
-                                    </a>
-                                ) : null}
-
-                                {product.sellerContact?.whatsapp ? (
+                                {whatsappHref ? (
                                     <a
                                         className="rounded border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-100"
-                                        href={product.sellerContact.whatsapp}
+                                        href={whatsappHref}
                                         target="_blank"
                                         rel="noopener noreferrer"
+                                        aria-label="Contact seller on WhatsApp"
                                     >
                                         WhatsApp
                                     </a>
                                 ) : null}
 
-                                {product.sellerContact?.messenger ? (
+                                {messengerHref ? (
                                     <a
                                         className="rounded border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-700 hover:bg-blue-100"
-                                        href={product.sellerContact.messenger}
+                                        href={messengerHref}
                                         target="_blank"
                                         rel="noopener noreferrer"
+                                        aria-label="Contact seller on Messenger"
                                     >
                                         Messenger
+                                    </a>
+                                ) : null}
+
+                                {emailHref ? (
+                                    <a
+                                        className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+                                        href={emailHref}
+                                        aria-label="Contact seller via Email"
+                                    >
+                                        Email
                                     </a>
                                 ) : null}
                             </div>
@@ -251,7 +244,7 @@ export default function ProductDetailsClient({ id }: { id: string }) {
                                 type="button"
                                 className="rounded bg-amber-500 px-4 py-2 text-white disabled:opacity-60"
                                 onClick={markSold}
-                                disabled={product.status === "SOLD"}
+                                disabled={isSold}
                             >
                                 Mark Sold
                             </button>

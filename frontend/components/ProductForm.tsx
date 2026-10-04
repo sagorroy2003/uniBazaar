@@ -1,12 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { apiRequest } from "@/lib/api"; // Adjust import path if necessary
-import ImageUpload from "@/components/image-upload"; // Adjust if your file is named/located differently
+import { useState, useEffect, ChangeEvent, FormEvent } from "react";
+import { apiRequest, Product } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
+import ImageUpload from "@/components/image-upload";
+
+type Category = {
+    id: number;
+    name: string;
+};
+
+export type ProductFormPayload = {
+    title: string;
+    price: number;
+    categoryId: number;
+    description: string;
+    location: string;
+    imageUrl: string;
+    showEmail: boolean;
+    showWhatsapp: boolean;
+    showMessenger: boolean;
+};
 
 interface ProductFormProps {
-    initialData?: any;
-    onSubmit: (data: any) => Promise<void>;
+    initialData?: Partial<Product>;
+    onSubmit: (data: ProductFormPayload) => Promise<void>;
     onCancel: () => void;
     submitLabel: string;
     error?: string | null;
@@ -19,12 +37,19 @@ export default function ProductForm({
     submitLabel,
     error
 }: ProductFormProps) {
-    const [categories, setCategories] = useState<any[]>([]);
+    const { user } = useAuth();
+    const [categories, setCategories] = useState<Category[]>([]);
     const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+    const [categoriesError, setCategoriesError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    const hasWhatsappInProfile = Boolean(
+        user?.whatsappUsername?.trim() || user?.phoneNumber?.trim()
+    );
+    const hasMessengerInProfile = Boolean(user?.messengerUsername?.trim());
+
     // Initialize state with initialData (for Edit) or defaults (for Create)
-    const getInitialFormData = (data?: any) => ({
+    const getInitialFormData = (data?: Partial<Product>) => ({
         title: data?.title ?? "",
         price: data?.price ?? "",
         categoryId: data?.categoryId ?? "",
@@ -41,15 +66,17 @@ export default function ProductForm({
     useEffect(() => {
         setFormData(getInitialFormData(initialData));
     }, [initialData]);
+
     useEffect(() => {
-        // Fetch categories on mount
         const fetchCategories = async () => {
             setIsLoadingCategories(true);
+            setCategoriesError(null);
             try {
-                const data = await apiRequest("/categories");
-                setCategories(data as any[]);
+                const data = await apiRequest<Category[]>("/categories");
+                setCategories(data);
             } catch (err) {
                 console.error("Failed to load categories", err);
+                setCategoriesError("Failed to load categories. Please refresh.");
             } finally {
                 setIsLoadingCategories(false);
             }
@@ -57,7 +84,9 @@ export default function ProductForm({
         fetchCategories();
     }, []);
 
-    const handleChange = (e: import("react").ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const handleChange = (
+        e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    ) => {
         const { name, value, type } = e.target as HTMLInputElement;
         const checked = (e.target as HTMLInputElement).checked;
 
@@ -67,13 +96,12 @@ export default function ProductForm({
         }));
     };
 
-    const handleSubmit = async (e: import("react").FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
 
         try {
-            // Format the payload so Prisma doesn't crash on string/number mismatches
-            const formattedPayload = {
+            const formattedPayload: ProductFormPayload = {
                 ...formData,
                 price: Number(formData.price),
                 categoryId: Number(formData.categoryId),
@@ -88,6 +116,7 @@ export default function ProductForm({
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             {error && <div className="text-red-500 text-sm mb-4">{error}</div>}
+            {categoriesError && <div className="text-amber-400 text-sm mb-2">{categoriesError}</div>}
 
             <select
                 name="categoryId"
@@ -99,7 +128,7 @@ export default function ProductForm({
                 <option value="" disabled>
                     {isLoadingCategories ? "Loading categories..." : "Select a category"}
                 </option>
-                {categories.map((cat: any) => (
+                {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
             </select>
@@ -152,14 +181,30 @@ export default function ProductForm({
                     <input type="checkbox" name="showEmail" checked={formData.showEmail} onChange={handleChange} />
                     <span>Show Email</span>
                 </label>
-                <label className="flex items-center space-x-2">
-                    <input type="checkbox" name="showWhatsapp" checked={formData.showWhatsapp} onChange={handleChange} />
-                    <span>Show Whatsapp</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                    <input type="checkbox" name="showMessenger" checked={formData.showMessenger} onChange={handleChange} />
-                    <span>Show Messenger</span>
-                </label>
+
+                <div>
+                    <label className="flex items-center space-x-2">
+                        <input type="checkbox" name="showWhatsapp" checked={formData.showWhatsapp} onChange={handleChange} />
+                        <span>Show WhatsApp</span>
+                    </label>
+                    {!hasWhatsappInProfile && (
+                        <p className="text-xs text-gray-400 mt-1">
+                            Add a WhatsApp username or phone number in Profile first.
+                        </p>
+                    )}
+                </div>
+
+                <div>
+                    <label className="flex items-center space-x-2">
+                        <input type="checkbox" name="showMessenger" checked={formData.showMessenger} onChange={handleChange} />
+                        <span>Show Messenger</span>
+                    </label>
+                    {!hasMessengerInProfile && (
+                        <p className="text-xs text-gray-400 mt-1">
+                            Add a Messenger username in Profile first.
+                        </p>
+                    )}
+                </div>
             </div>
 
             <div className="flex space-x-4">

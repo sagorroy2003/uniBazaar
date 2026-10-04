@@ -13,25 +13,10 @@ import {
   getProducts,
   updateProductStatus,
   renewProduct,
-  ListingStatus
+  Product
 } from "@/lib/api";
 
 type Category = { id: number; name: string };
-
-type Product = {
-  id: number;
-  userId: number;
-  categoryId: number;
-  title: string;
-  description?: string;
-  price: number | string;
-  location?: string;
-  imageUrl?: string;
-  status: ListingStatus;
-  expiresAt?: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
 
 export default function HomePageClient() {
   const router = useRouter();
