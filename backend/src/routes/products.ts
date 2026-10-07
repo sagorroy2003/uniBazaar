@@ -267,14 +267,29 @@ router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
       throw new ApiError(404, "Product not found");
     }
 
-    const sellerContact = {
-      email: product.showEmail ? product.user.email : undefined,
-      whatsapp: product.showWhatsapp && (product.user.whatsappUsername || product.user.phoneNumber) ? toWhatsappUrl(product.user) : undefined,
-      messenger:
-        product.showMessenger && product.user.messengerUsername
-          ? toMessengerUrl(product.user.messengerUsername)
-          : undefined,
-    };
+    // 1. Check if the listing is actually available to buyers
+    const isExpired =
+      product.status === "EXPIRED" ||
+      (product.status === "ACTIVE" &&
+        product.expiresAt &&
+        new Date(product.expiresAt) < new Date());
+
+    const isAvailable = product.status !== "SOLD" && !isExpired;
+
+    // 2. Only build contact info if the listing is available
+    const sellerContact = isAvailable
+      ? {
+        email: product.showEmail ? product.user.email : undefined,
+        whatsapp:
+          product.showWhatsapp && (product.user.whatsappUsername || product.user.phoneNumber)
+            ? toWhatsappUrl(product.user)
+            : undefined,
+        messenger:
+          product.showMessenger && product.user.messengerUsername
+            ? toMessengerUrl(product.user.messengerUsername)
+            : undefined,
+      }
+      : undefined;
 
     res.json({
       id: product.id,
