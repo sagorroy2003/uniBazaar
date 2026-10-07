@@ -87,19 +87,29 @@ export async function updateProfile(data: Partial<User>): Promise<User> {
   return { ...res, userId: res.id };
 }
 
+export type SellerContact = {
+  email?: string;
+  whatsapp?: string;
+  messenger?: string;
+};
+
 export type Product = {
   id: number;
   userId: number;
   categoryId: number;
   title: string;
-  description?: string;
+  description?: string | null;
   price: number | string;
-  location?: string;
-  imageUrl?: string;
+  location?: string | null;
+  imageUrl?: string | null;
+  showEmail: boolean;
+  showWhatsapp: boolean;
+  showMessenger: boolean;
   status: ListingStatus;
   expiresAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  sellerContact?: SellerContact;
 };
 
 export function getMyProducts(): Promise<Product[]> {
